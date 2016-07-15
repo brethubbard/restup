@@ -3,14 +3,14 @@ using Restup.HttpMessage.Headers.Response;
 using Restup.HttpMessage.Models.Contracts;
 using Restup.HttpMessage.Models.Schemas;
 using Restup.Webserver.Models.Contracts;
+using Restup.WebServer.Logging;
+using Restup.WebServer.Models.Contracts;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Networking.Sockets;
-using Restup.WebServer.Logging;
 
 namespace Restup.Webserver.Http
 {
@@ -71,6 +71,11 @@ namespace Restup.Webserver.Http
             }
 
             _routes.Add(routeRegistration);
+        }
+
+        public void RegisterMessageInspector(IMessageInspector inspector)
+        {
+
         }
 
         private async void ProcessRequestAsync(StreamSocketListener sender, StreamSocketListenerConnectionReceivedEventArgs args)

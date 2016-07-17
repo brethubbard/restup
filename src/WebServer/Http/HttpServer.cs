@@ -17,8 +17,8 @@ namespace Restup.Webserver.Http
     public class HttpServer : IDisposable
     {
         private readonly int _port;
-        private readonly StreamSocketListener _listener;
-        private readonly SortedSet<RouteRegistration> _routes;
+        private StreamSocketListener _listener;
+        private readonly SortedDictionary<RouteRegistration, IEnumerable<IMessageInspector>> _routes;
         private readonly ContentEncoderFactory _contentEncoderFactory;
         private ILogger _log;
 
@@ -26,15 +26,16 @@ namespace Restup.Webserver.Http
         {
             _log = LogManager.GetLogger<HttpServer>();
             _port = serverPort;
-            _routes = new SortedSet<RouteRegistration>();
-            _listener = new StreamSocketListener();
-
-            _listener.ConnectionReceived += ProcessRequestAsync;
+            _routes = new SortedDictionary<RouteRegistration, IEnumerable<IMessageInspector>>();
             _contentEncoderFactory = new ContentEncoderFactory();
         }
 
         public async Task StartServerAsync()
         {
+            _listener = new StreamSocketListener();
+
+            _listener.ConnectionReceived += ProcessRequestAsync;
+
             await _listener.BindServiceNameAsync(_port.ToString());
 
             _log.Info($"Webserver listening on port {_port}");
@@ -51,9 +52,9 @@ namespace Restup.Webserver.Http
         /// Registers the <see cref="IRouteHandler"/> on the root url.
         /// </summary>
         /// <param name="restRoutehandler">The rest route handler to register.</param>
-        public void RegisterRoute(IRouteHandler restRoutehandler)
+        public void RegisterRoute(IRouteHandler restRoutehandler, params IMessageInspector[] messageInspectors)
         {
-            RegisterRoute("/", restRoutehandler);
+            RegisterRoute("/", restRoutehandler, messageInspectors);
         }
 
         /// <summary>
@@ -61,21 +62,16 @@ namespace Restup.Webserver.Http
         /// </summary>
         /// <param name="urlPrefix">The urlprefix to use, e.g. /api, /api/v001, etc. </param>
         /// <param name="restRoutehandler">The rest route handler to register.</param>
-        public void RegisterRoute(string urlPrefix, IRouteHandler restRoutehandler)
+        public void RegisterRoute(string urlPrefix, IRouteHandler restRoutehandler, params IMessageInspector[] messageInspectors)
         {
             var routeRegistration = new RouteRegistration(urlPrefix, restRoutehandler);
 
-            if (_routes.Contains(routeRegistration))
+            if (_routes.ContainsKey(routeRegistration))
             {
                 throw new Exception($"RouteHandler already registered for prefix: {urlPrefix}");
             }
 
-            _routes.Add(routeRegistration);
-        }
-
-        public void RegisterMessageInspector(IMessageInspector inspector)
-        {
-
+            _routes.Add(routeRegistration, messageInspectors ?? Enumerable.Empty<IMessageInspector>());
         }
 
         private async void ProcessRequestAsync(StreamSocketListener sender, StreamSocketListenerConnectionReceivedEventArgs args)
@@ -108,16 +104,50 @@ namespace Restup.Webserver.Http
             });
         }
 
-        internal async Task<HttpServerResponse> HandleRequestAsync(IHttpServerRequest request)
+        internal async Task<HttpServerResponse> HandleRequestAsync(MutableHttpServerRequest request)
         {
-            var routeRegistration = _routes.FirstOrDefault(x => x.Match(request));
+            var route = _routes.FirstOrDefault(x => x.Key.Match(request));
+            var routeRegistration = route.Key;
+            var messageInspectors = route.Value;
+
             if (routeRegistration == null)
             {
                 return HttpServerResponse.Create(new Version(1, 1), HttpResponseStatus.BadRequest);
             }
 
+            var associatedObjects = await InvokeMessageInspectorsAfterReceivedRequestAsync(messageInspectors, request);
+
             var httpResponse = await routeRegistration.HandleAsync(request);
+
+            await InvokeMessageInspectorsBeforeSendReplyAsync(messageInspectors, associatedObjects, httpResponse);
+
             return await AddContentEncodingAsync(httpResponse, request.AcceptEncodings);
+        }
+
+        private async Task<IReadOnlyDictionary<IMessageInspector, object>> InvokeMessageInspectorsAfterReceivedRequestAsync(IEnumerable<IMessageInspector> messageInspectors, MutableHttpServerRequest request)
+        {
+            SortedDictionary<IMessageInspector, object> associatedObjects = null;
+            if (messageInspectors.Any())
+            {
+                associatedObjects = new SortedDictionary<IMessageInspector, object>();
+                foreach (var messageInspector in messageInspectors)
+                {
+                    associatedObjects.Add(messageInspector, await messageInspector.AfterReceiveRequest(request));
+                }
+            }
+
+            return associatedObjects;
+        }
+
+        private async Task InvokeMessageInspectorsBeforeSendReplyAsync(IEnumerable<IMessageInspector> messageInspectors, IReadOnlyDictionary<IMessageInspector, object> associatedObjects, HttpServerResponse httpResponse)
+        {
+            if (messageInspectors.Any())
+            {
+                foreach (var messageInspector in messageInspectors)
+                {
+                    await messageInspector.BeforeSendReply(httpResponse, associatedObjects[messageInspector]);
+                }
+            }
         }
 
         private async Task<HttpServerResponse> AddContentEncodingAsync(HttpServerResponse httpResponse, IEnumerable<string> acceptEncodings)
@@ -159,6 +189,7 @@ namespace Restup.Webserver.Http
 
         void IDisposable.Dispose()
         {
+            _listener.ConnectionReceived -= ProcessRequestAsync;
             _listener.Dispose();
         }
     }

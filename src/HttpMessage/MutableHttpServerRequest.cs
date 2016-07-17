@@ -48,9 +48,9 @@ namespace Restup.HttpMessage
             _headers.Add(header);
         }
 
-        public async static Task<MutableHttpServerRequest> Parse(IInputStream requestStream)
+        public static Task<MutableHttpServerRequest> Parse(IInputStream requestStream)
         {
-            return await HttpRequestParser.Default.ParseRequestStream(requestStream);
+            return HttpRequestParser.Default.ParseRequestStream(requestStream);
         }
     }
 }

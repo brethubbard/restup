@@ -11,12 +11,12 @@ namespace Restup.Webserver.UnitTests.Http
     public class HttpServerTests_MessageInspector
     {
         [TestMethod]
-        public async Task GivenMessageInspectorChangesIncomingData_ThenHandleRequestShouldHaveThatData()
+        public async Task RegisterRoute_WithMessageInspector_RequestMutated()
         {
+            // single inspector who mutates incoming request
             var newContent = new byte[] { 1, 2, 3 };
             var httpServer = new HttpServer(80);
-            httpServer.RegisterRoute(new EchoRouteHandler());
-            httpServer.RegisterMessageInspector(new ReplaceContentMessageInspector(newContent));
+            httpServer.RegisterRoute(new EchoRouteHandler(), new ReplaceContentMessageInspector(newContent));
             var request = new MutableHttpServerRequest()
             {
                 Uri = new Uri("http://localhost/"),
@@ -26,6 +26,34 @@ namespace Restup.Webserver.UnitTests.Http
             var response = await httpServer.HandleRequestAsync(request);
 
             CollectionAssert.AreEqual(newContent, response.Content);
+        }
+
+        [TestMethod]
+        public async Task RegisterRoute_WithMessageInspector_AssociatedObjectPassed()
+        {
+            // single inspector with associated object
+            Assert.Fail();
+        }
+
+        [TestMethod]
+        public async Task RegisterRoute_WithMessageInspector_AssociatedObjectCorrelated()
+        {
+            // multiple inspectors, with and without correlated objects
+            Assert.Fail();
+        }
+
+        [TestMethod]
+        public async Task RegisterRoute_WithMessageInspector_ExceptionThrown()
+        {
+            // throw exception in inspector, should be rethrown or not?
+            Assert.Fail();
+        }
+
+        [TestMethod]
+        public async Task RegisterRoute_WithMessageInspector_ResponseMutated()
+        {
+            // inspector BeforeSend mutates response
+            Assert.Fail();
         }
     }
 }

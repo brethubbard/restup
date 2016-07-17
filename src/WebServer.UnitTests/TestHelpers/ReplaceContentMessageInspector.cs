@@ -1,6 +1,5 @@
 ﻿using Restup.HttpMessage;
 using Restup.WebServer.Models.Contracts;
-using System;
 using System.Threading.Tasks;
 
 namespace Restup.Webserver.UnitTests.TestHelpers
@@ -23,7 +22,7 @@ namespace Restup.Webserver.UnitTests.TestHelpers
 
         public Task BeforeSendReply(HttpServerResponse response, object correlationObject)
         {
-            throw new NotImplementedException();
+            return Task.FromResult<object>(null);
         }
     }
 }

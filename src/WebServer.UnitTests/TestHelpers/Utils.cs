@@ -47,20 +47,41 @@ namespace Restup.Webserver.UnitTests.TestHelpers
             return response;
         }
 
-        public static IHttpServerRequest CreateHttpRequest(IEnumerable<IHttpRequestHeader> headers = null,
-            HttpMethod? method = HttpMethod.GET, Uri uri = null, string httpVersion = "HTTP / 1.1",
-            string contentTypeCharset = null, IEnumerable<string> acceptCharsets = null,
-            int contentLength = 0, string contentType = null,
+        public static MutableHttpServerRequest CreateHttpRequest(
+            IEnumerable<IHttpRequestHeader> headers = null,
+            HttpMethod? method = HttpMethod.GET,
+            Uri uri = null,
+            string httpVersion = "HTTP / 1.1",
+            string contentTypeCharset = null,
+            IEnumerable<string> acceptCharsets = null,
+            int contentLength = 0,
+            string contentType = null,
             IEnumerable<string> acceptEncodings = null,
-            IEnumerable<string> acceptMediaTypes = null, byte[] content = null,
+            IEnumerable<string> acceptMediaTypes = null,
+            byte[] content = null,
             bool isComplete = true)
         {
-            return new HttpServerRequest(headers ?? Enumerable.Empty<IHttpRequestHeader>(), method,
-                uri ?? new Uri("/Get", UriKind.Relative), httpVersion, contentTypeCharset,
-                acceptCharsets ?? Enumerable.Empty<string>(),
-                contentLength, contentType, acceptEncodings ?? Enumerable.Empty<string>(),
-                acceptMediaTypes ?? Enumerable.Empty<string>(), content ?? new byte[] { },
-                isComplete);
+            var request = new MutableHttpServerRequest()
+            {
+                Method = method,
+                Uri = uri ?? new Uri("/Get", UriKind.Relative),
+                HttpVersion = httpVersion,
+                ContentTypeCharset = contentTypeCharset,
+                AcceptCharsets = acceptCharsets ?? Enumerable.Empty<string>(),
+                ContentLength = contentLength,
+                ContentType = contentType,
+                AcceptEncodings = acceptEncodings ?? Enumerable.Empty<string>(),
+                AcceptMediaTypes = acceptMediaTypes ?? Enumerable.Empty<string>(),
+                Content = content ?? new byte[] { },
+                IsComplete = isComplete
+            };
+
+            foreach (var header in headers ?? Enumerable.Empty<IHttpRequestHeader>())
+            {
+                request.AddHeader(header);
+            }
+
+            return request;
         }
 
         internal static RestServerRequest CreateRestServerRequest(IEnumerable<IHttpRequestHeader> headers = null,
